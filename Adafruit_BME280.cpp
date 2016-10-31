@@ -69,11 +69,18 @@ bool Adafruit_BME280::begin(uint8_t a, Adafruit_BME280::OPERATING_MODE mode) {
   if (read8(BME280_REGISTER_CHIPID) != 0x60)
     return false;
 
-  readCoefficients();
-
   // reset the device using soft-reset
   // this makes sure the IIR is off, etc.
   write8(BME280_REGISTER_SOFTRESET, 0xB6);
+
+  // wait 3ms for chip to wake up.
+  delay(300);
+
+  // if chip is still reading coefficients, delay
+  while (isReadingCalibration())
+        /* wait */;
+
+  readCoefficients();
 
   //Set before CONTROL_meas (DS 5.4.3)
   write8(BME280_REGISTER_CONTROLHUMID, 0x05); //16x oversampling 
@@ -402,7 +409,7 @@ void Adafruit_BME280::readCoefficients(void)
 
 /**************************************************************************/
 /*!
-@brief return true if a measurement is in progress
+    @brief return true if a measurement is in progress
 */
 /**************************************************************************/
 bool Adafruit_BME280::isMeasuring(void)
@@ -414,7 +421,20 @@ bool Adafruit_BME280::isMeasuring(void)
 
 /**************************************************************************/
 /*!
-@brief start a measurement (for forced mode).
+    @brief return true if chip is busy reading cal data
+*/
+/**************************************************************************/
+bool Adafruit_BME280::isReadingCalibration(void)
+{
+  uint8_t const rStatus = read8(BME280_REGISTER_STATUS);
+
+  return (rStatus & (1 << 0)) != 0;
+}
+
+
+/**************************************************************************/
+/*!
+    @brief start a measurement (for forced mode).
 */
 /**************************************************************************/
 void Adafruit_BME280::startMeasurement(void)

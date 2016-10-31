@@ -171,6 +171,7 @@ class Adafruit_BME280
     float     compensateTemperatureFloat(int32_t adcVal);
     int32_t   compensateTemperatureInt32(int32_t adcVal);
     bool      isMeasuring(void);
+    bool      isReadingCalibration(void);
     void      readCoefficients(void);
     void      startMeasurement(void);
     uint8_t   spixfer(uint8_t x);
