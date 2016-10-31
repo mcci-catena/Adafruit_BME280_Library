@@ -13,6 +13,8 @@
 
   Written by Limor Fried & Kevin Townsend for Adafruit Industries.
   BSD license, all text above must be included in any redistribution
+
+  Updated by Terry Moore for MCCI to match the BME280 datasheet Oct 2016
  ***************************************************************************/
 #ifndef __BME280_H__
 #define __BME280_H__
@@ -65,6 +67,7 @@
       BME280_REGISTER_CAL26              = 0xE1,  // R calibration stored in 0xE1-0xF0
 
       BME280_REGISTER_CONTROLHUMID       = 0xF2,
+      BME280_REGISTER_STATUS             = 0xF3,
       BME280_REGISTER_CONTROL            = 0xF4,
       BME280_REGISTER_CONFIG             = 0xF5,
       BME280_REGISTER_PRESSUREDATA       = 0xF7,
@@ -126,35 +129,70 @@ class Adafruit_BME280_Unified : public Adafruit_Sensor
 class Adafruit_BME280
 {
   public:
+    enum class OPERATING_MODE { Normal, Forced, Sleep };
+    enum class OVERSAMPLE_MODE { Skip = 0, x1, x2, x4, x8, x16 };
     Adafruit_BME280(void);
     Adafruit_BME280(int8_t cspin);
     Adafruit_BME280(int8_t cspin, int8_t mosipin, int8_t misopin, int8_t sckpin);
 
     bool  begin(uint8_t addr = BME280_ADDRESS);
+    bool  begin(uint8_t addr, OPERATING_MODE mode);
     float readTemperature(void);
+
     float readPressure(void);
     float readHumidity(void);
     float readAltitude(float seaLevel);
     float seaLevelForAltitude(float altitude, float atmospheric);
 
   private:
+    inline uint8_t modeRegisterBits(
+                OVERSAMPLE_MODE osrs_t,
+                OVERSAMPLE_MODE osrs_p,
+                OPERATING_MODE mode
+                )
+        {
+        unsigned result;
 
-    void readCoefficients(void);
-    uint8_t spixfer(uint8_t x);
+        switch (mode) {
+           case OPERATING_MODE::Sleep: result = 0; break;
+           case OPERATING_MODE::Normal: result = 3; break;
+           case OPERATING_MODE::Forced: result = 1; break;
+           default:        result = 3; break;
+        }
+        result |= (static_cast<unsigned>(osrs_t) << 5) |
+                  (static_cast<unsigned>(osrs_p) << 2);
+
+        return result;
+        }
+    float     compensateHumidityFloat(int32_t adc_T, int32_t adc_H);
+    int32_t   compensateHumidityInt32(int32_t adc_T, int32_t adc_H);
+    float     compensatePressureFloat(int32_t adc_T, int32_t adc_P);
+    int32_t   compensatePressureInt32(int32_t adc_T, int32_t adc_P);
+    float     compensateTemperatureFloat(int32_t adcVal);
+    int32_t   compensateTemperatureInt32(int32_t adcVal);
+    bool      isMeasuring(void);
+    void      readCoefficients(void);
+    void      startMeasurement(void);
+    uint8_t   spixfer(uint8_t x);
 
     void      write8(byte reg, byte value);
     uint8_t   read8(byte reg);
     uint16_t  read16(byte reg);
     uint32_t  read24(byte reg);
+    void      read24x24(byte reg, uint32_t *pv1, uint32_t *pv2);
+    void      read16x24(byte reg, uint16_t *pv1, uint32_t *pv2);
     int16_t   readS16(byte reg);
     uint16_t  read16_LE(byte reg); // little endian
     int16_t   readS16_LE(byte reg); // little endian
 
     uint8_t   _i2caddr;
     int32_t   _sensorID;
-    int32_t t_fine;
+    int32_t   t_fine;
 
     int8_t _cs, _mosi, _miso, _sck;
+
+    OPERATING_MODE _mode;
+    OVERSAMPLE_MODE _osrs_t, _osrs_p;
 
     bme280_calib_data _bme280_calib;
 
