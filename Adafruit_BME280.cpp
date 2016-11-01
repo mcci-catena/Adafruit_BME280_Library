@@ -499,6 +499,7 @@ float Adafruit_BME280::compensateTemperatureFloat(int32_t adc_T)
 
 int32_t Adafruit_BME280::compensateTemperatureInt32(int32_t adc_T)
 {
+#if 0
   int32_t var1, var2;
 
   /* x1 in Bosch API terminology */
@@ -512,6 +513,16 @@ int32_t Adafruit_BME280::compensateTemperatureInt32(int32_t adc_T)
 	   ((int32_t)_bme280_calib.dig_T3)) >> 14;
 
   t_fine = var1 + var2;
+#else
+  // code from https://github.com/embeddedadventures/BME280
+  double var1, var2;
+
+  var1 = (((double)adc_T)/16384.0 - ((double)_bme280_calib.dig_T1)/1024.0) * ((double)_bme280_calib.dig_T2);
+  var2 = ((((double)adc_T)/131072.0 - ((double)_bme280_calib.dig_T1)/8192.0) *
+     (((double)adc_T)/131072.0 - ((double) _bme280_calib.dig_T1)/8192.0)) * ((double)_bme280_calib.dig_T3);
+
+  t_fine = (int32_t)(var1 + var2);
+#endif
 
   return (t_fine * 5 + 128) >> 8;
 }
@@ -555,6 +566,7 @@ float Adafruit_BME280::compensatePressureFloat(int32_t adc_T, int32_t adc_P)
 /**************************************************************************/
 int32_t  Adafruit_BME280::compensatePressureInt32(int32_t adc_T, int32_t adc_P)
 {
+#if 0
   int32_t var1, var2;
   uint32_t p;
 
@@ -580,6 +592,25 @@ int32_t  Adafruit_BME280::compensatePressureInt32(int32_t adc_T, int32_t adc_P)
   var1 = (((int32_t)_bme280_calib.dig_P9) * ((int32_t)(((p>>3) * (p>>3))>>13)))>>12;
   var2 = (((int32_t)(p>>2)) * ((int32_t)_bme280_calib.dig_P8))>>13;
   p = (uint32_t)((int32_t)p + ((var1 + var2 + _bme280_calib.dig_P7) >> 4));
+#else
+  // code from https://github.com/embeddedadventures/BME280
+  double var1, var2, p;
+
+  var1 = ((double)t_fine/2.0) - 64000.0;
+  var2 = var1 * var1 * ((double)_bme280_calib.dig_P6) / 32768.0;
+  var2 = var2 + var1 * ((double)_bme280_calib.dig_P5) * 2.0;
+  var2 = (var2/4.0)+(((double)_bme280_calib.dig_P4) * 65536.0);
+  var1 = (((double)_bme280_calib.dig_P3) * var1 * var1 / 524288.0 + ((double)_bme280_calib.dig_P2) * var1) / 524288.0;
+  var1 = (1.0 + var1 / 32768.0)*((double)_bme280_calib.dig_P1);
+  if (var1 == 0.0) {
+    return 0; // avoid exception caused by division by zero
+  }
+  p = 1048576.0 - (double)adc_P;
+  p = (p - (var2 / 4096.0)) * 6250.0 / var1;
+  var1 = ((double)_bme280_calib.dig_P9) * p * p / 2147483648.0;
+  var2 = p * ((double)_bme280_calib.dig_P8) / 32768.0;
+  p = p + (var1 + var2 + ((double)_bme280_calib.dig_P7)) / 16.0;
+#endif
   return p;
 }
 
