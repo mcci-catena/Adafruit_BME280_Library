@@ -131,6 +131,7 @@ class Adafruit_BME280
   public:
     enum class OPERATING_MODE { Normal, Forced, Sleep };
     enum class OVERSAMPLE_MODE { Skip = 0, x1, x2, x4, x8, x16 };
+    struct Measurements { float Temperature; float Pressure; float Humidity; };
     Adafruit_BME280(void);
     Adafruit_BME280(int8_t cspin);
     Adafruit_BME280(int8_t cspin, int8_t mosipin, int8_t misopin, int8_t sckpin);
@@ -141,6 +142,7 @@ class Adafruit_BME280
 
     float readPressure(void);
     float readHumidity(void);
+    Measurements readTemperaturePressureHumidity(void);
     float readAltitude(float seaLevel);
     float seaLevelForAltitude(float altitude, float atmospheric);
 
@@ -181,7 +183,8 @@ class Adafruit_BME280
     uint16_t  read16(byte reg);
     uint32_t  read24(byte reg);
     void      read24x24(byte reg, uint32_t *pv1, uint32_t *pv2);
-    void      read16x24(byte reg, uint16_t *pv1, uint32_t *pv2);
+    void      read24x16(byte reg, uint32_t *pv1, uint16_t *pv2);
+    void      read24x24x16(byte reg, uint32_t *pv1, uint32_t *pv2, uint16_t *pv3);
     int16_t   readS16(byte reg);
     uint16_t  read16_LE(byte reg); // little endian
     int16_t   readS16_LE(byte reg); // little endian

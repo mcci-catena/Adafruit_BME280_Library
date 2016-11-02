@@ -329,11 +329,11 @@ void Adafruit_BME280::read24x24(byte reg, uint32_t *pv1, uint32_t *pv2)
 
 /**************************************************************************/
 /*!
-@brief  Reads a 24-bit value followed by a 16-bit value over I2C or SPI
+   @brief  Reads a 24-bit value followed by a 16-bit value over I2C or SPI
 */
 /**************************************************************************/
 
-void Adafruit_BME280::read16x24(byte reg, uint16_t *pv1, uint32_t *pv2)
+void Adafruit_BME280::read24x16(byte reg, uint32_t *pv1, uint16_t *pv2)
 {
   uint32_t value;
 
@@ -346,11 +346,11 @@ void Adafruit_BME280::read16x24(byte reg, uint16_t *pv1, uint32_t *pv2)
     value = Wire.read();
     value <<= 8;
     value |= Wire.read();
+    value <<= 8;
+    value |= Wire.read();
     *pv1 = value;
 
     value = Wire.read();
-    value <<= 8;
-    value |= Wire.read();
     value <<= 8;
     value |= Wire.read();
     *pv2 = value;
@@ -363,11 +363,11 @@ void Adafruit_BME280::read16x24(byte reg, uint16_t *pv1, uint32_t *pv2)
     value = spixfer(0);
     value <<= 8;
     value |= spixfer(0);
+    value <<= 8;
+    value |= spixfer(0);
     *pv1 = (uint16_t) value;
 
     value = spixfer(0);
-    value <<= 8;
-    value |= spixfer(0);
     value <<= 8;
     value |= spixfer(0);
     *pv2 = value;
@@ -377,6 +377,72 @@ void Adafruit_BME280::read16x24(byte reg, uint16_t *pv1, uint32_t *pv2)
       SPI.endTransaction();              // release the SPI bus
   }
 }
+
+/**************************************************************************/
+/*!
+    @brief  Reads two 24-bit values followed by a 16-bit value over I2C or SPI
+*/
+/**************************************************************************/
+
+void Adafruit_BME280::read24x24x16(byte reg, uint32_t *pv1, uint32_t *pv2, uint16_t *pv3)
+        {
+        uint32_t value;
+
+        if (_cs == -1) {
+                Wire.beginTransmission((uint8_t)_i2caddr);
+                Wire.write((uint8_t)reg);
+                Wire.endTransmission();
+                Wire.requestFrom((uint8_t)_i2caddr, (byte)5);
+
+                value = Wire.read();
+                value <<= 8;
+                value |= Wire.read();
+                value <<= 8;
+                value |= Wire.read();
+                *pv1 = value;
+
+                value = Wire.read();
+                value <<= 8;
+                value |= Wire.read();
+                value <<= 8;
+                value |= Wire.read();
+                *pv2 = value;
+
+                value = Wire.read();
+                value <<= 8;
+                value |= Wire.read();
+                *pv3 = (uint16_t) value;
+                } else {
+                if (_sck == -1)
+                        SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE0));
+                digitalWrite(_cs, LOW);
+                spixfer(reg | 0x80); // read, bit 7 high
+
+                value = spixfer(0);
+                value <<= 8;
+                value |= spixfer(0);
+                value <<= 8;
+                value |= spixfer(0);
+                *pv1 = value;
+
+                value = spixfer(0);
+                value <<= 8;
+                value |= spixfer(0);
+                value <<= 8;
+                value |= spixfer(0);
+                *pv2 = value;
+
+                value = spixfer(0);
+                value <<= 8;
+                value |= spixfer(0);
+                *pv3 = (uint16_t) value;
+
+                digitalWrite(_cs, HIGH);
+                if (_sck == -1)
+                        SPI.endTransaction();              // release the SPI bus
+                }
+        }
+
 
 /**************************************************************************/
 /*!
@@ -614,6 +680,24 @@ int32_t  Adafruit_BME280::compensatePressureInt32(int32_t adc_T, int32_t adc_P)
   return p;
 }
 
+Adafruit_BME280::Measurements Adafruit_BME280::readTemperaturePressureHumidity()
+{
+   Measurements result;
+
+   startMeasurement();
+   uint32_t u_adc_T;
+   uint32_t u_adc_P;
+   uint16_t u_adc_H;
+   read24x24x16(BME280_REGISTER_PRESSUREDATA, &u_adc_P, &u_adc_T, &u_adc_H);
+
+   int32_t adc_P = u_adc_P >>= 4;
+   int32_t adc_T = u_adc_T >>= 4;
+
+   result.Temperature = compensateTemperatureFloat(adc_T);
+   result.Pressure = compensatePressureFloat(adc_T, adc_P);
+   result.Humidity = compensateHumidityFloat(adc_T, u_adc_H);
+   return result;
+}
 
 /**************************************************************************/
 /*!
@@ -626,7 +710,7 @@ float Adafruit_BME280::readHumidity(void) {
   uint32_t u_adc_T;
   uint16_t u_adc_H;
 
-  read16x24(BME280_REGISTER_HUMIDDATA, &u_adc_H, &u_adc_T);
+  read24x16(BME280_REGISTER_TEMPDATA, &u_adc_T, &u_adc_H);
 
   /* update t_fine */
   int32_t const adc_T = u_adc_T >> 4;
