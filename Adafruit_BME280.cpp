@@ -392,7 +392,7 @@ void Adafruit_BME280::read24x24x16(byte reg, uint32_t *pv1, uint32_t *pv2, uint1
                 Wire.beginTransmission((uint8_t)_i2caddr);
                 Wire.write((uint8_t)reg);
                 Wire.endTransmission();
-                Wire.requestFrom((uint8_t)_i2caddr, (byte)5);
+                Wire.requestFrom((uint8_t)_i2caddr, (byte) 8);
 
                 value = Wire.read();
                 value <<= 8;
