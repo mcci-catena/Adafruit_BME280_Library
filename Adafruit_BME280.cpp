@@ -86,7 +86,7 @@ bool Adafruit_BME280::begin(uint8_t a, Adafruit_BME280::OPERATING_MODE mode) {
   write8(BME280_REGISTER_SOFTRESET, 0xB6);
 
   // wait 3ms for chip to wake up.
-  delay(300);
+  delay(3);
 
   // if chip is still reading coefficients, delay
   while (isReadingCalibration())
