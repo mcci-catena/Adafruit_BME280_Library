@@ -94,19 +94,25 @@ bool Adafruit_BME280::begin(uint8_t a, Adafruit_BME280::OPERATING_MODE mode) {
 
   readCoefficients();
 
-  //Set before CONTROL_meas (DS 5.4.3)
-  write8(BME280_REGISTER_CONTROLHUMID, 0x05); //16x oversampling 
+  //need to set CONFIG register?
 
   OPERATING_MODE initialMode;
   if (_mode == OPERATING_MODE::Normal) {
+    _osrs_h = OVERSAMPLE_MODE::x16;
     _osrs_t = OVERSAMPLE_MODE::x16;
     _osrs_p = OVERSAMPLE_MODE::x16;
     initialMode = OPERATING_MODE::Normal;
   } else {
+    _osrs_h = OVERSAMPLE_MODE::x16;
     _osrs_t = OVERSAMPLE_MODE::x16;
     _osrs_p = OVERSAMPLE_MODE::x16;
     initialMode = OPERATING_MODE::Sleep;
   }
+
+  //Set before CONTROL_meas (DS 5.4.3)
+  write8(BME280_REGISTER_CONTROLHUMID,
+	static_cast<unsigned>(this->_osrs_h)
+	);
 
   // treat sleep mode and forced mode the same: start out in sleep
   write8(BME280_REGISTER_CONTROL, modeRegisterBits(
@@ -114,6 +120,16 @@ bool Adafruit_BME280::begin(uint8_t a, Adafruit_BME280::OPERATING_MODE mode) {
                                         _osrs_p,
                                         initialMode
                                         ));
+
+  // for normal mode: delay until we have a measurement; otherwise when
+  // we start up, we'll get a bogus initial measurement.
+  if (initialMode == OPERATING_MODE::Normal)
+	{
+	uint32_t const n = this->getMeasurementDelay();
+	// Serial.print("BME280: delay "); Serial.print(n); Serial.println(" ms");
+	delay(n);
+	}
+
   return true;
 }
 
@@ -524,6 +540,7 @@ void Adafruit_BME280::startMeasurement(void)
   while (isMeasuring())
         /* wait */;
 
+  /* trigger a measurement */
   write8(BME280_REGISTER_CONTROL, 
         modeRegisterBits(
           _osrs_t,
@@ -531,9 +548,11 @@ void Adafruit_BME280::startMeasurement(void)
           OPERATING_MODE::Forced
           ));
 
-  /* wait for measurment bit to be clear */
-  while (isMeasuring())
-        /* wait */;
+  /*
+  || wait for measurement to complete; how long is a function
+  || of the measurement type.
+  */
+  delay(this->getMeasurementDelay());
 
   /* put the device back to sleep in sleep mode */
   if (_mode == OPERATING_MODE::Forced)
@@ -798,3 +817,35 @@ float Adafruit_BME280::seaLevelForAltitude(float altitude, float atmospheric)
   
   return atmospheric / pow(1.0 - (altitude/44330.0), 5.255);
 }
+
+/**************************************************************************/
+/*!
+    Calculate the required delay time for the current measurement mode.
+*/
+/**************************************************************************/
+
+uint32_t Adafruit_BME280::getMeasurementDelay(void) const
+	{
+	uint32_t basecount;
+	uint32_t ms;
+
+	/*
+	|| (1 << n) >> 1 is the same as (1 << (n-1)) except
+	|| that it works right, portably, when n is 0, returning
+	|| zero.
+	*/
+	basecount = T_MEASURE_PER_OSRS_MAX *
+			(((1u << static_cast<unsigned>(this->_osrs_t)) >> 1) +
+			 ((1u << static_cast<unsigned>(this->_osrs_p)) >> 1) +
+			 ((1u << static_cast<unsigned>(this->_osrs_h)) >> 1));
+
+	if (this->_osrs_p != OVERSAMPLE_MODE::Skip)
+		basecount += T_SETUP_PRESSURE_MAX;
+
+	if (this->_osrs_h != OVERSAMPLE_MODE::Skip)
+		basecount += T_SETUP_HUMIDITY_MAX;
+
+	/* this will be 114 ms for 16/16/16 */
+	ms = (T_INIT_MAX + basecount + 15) / 16;
+	return ms;
+	}

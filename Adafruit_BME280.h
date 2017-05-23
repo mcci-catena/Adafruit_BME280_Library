@@ -135,8 +135,26 @@ class Adafruit_BME280
 	{
 	CHIP_ID_READ_COUNT = 5,
 	CHIP_ID = 0x60,
-	REGISTER_READ_DELAY = 1,
+	REGISTER_READ_DELAY = 1, /* ms */
 	};
+
+    /*
+    || these times all use a consistent formula: (us * 4 + 125)/250,
+    || because we're converting microseconds to 16ths of a second, 
+    || and rounding. Since 1/16th is 62.5, we multiply by 4 (not 2)
+    || in order to be able to round correctly. They are taken from the
+    || Bosch Sensortec sample code and don't match the datasheet exactly;
+    || in particular, the datasheet uses 525us for the setup constants,
+    || and 2300us for the MEASURE_PER_OSRS_MAX time.
+    */
+    enum TIMES : unsigned
+	{
+	T_INIT_MAX		= (1250 * 4 + 125) / 250,
+	T_MEASURE_PER_OSRS_MAX  = (2314 * 4 + 125) / 250,
+	T_SETUP_PRESSURE_MAX	=  (625 * 4 + 125) / 250,
+	T_SETUP_HUMIDITY_MAX	=  (625 * 4 + 125) / 250,
+	};
+
     struct Measurements { float Temperature; float Pressure; float Humidity; };
     Adafruit_BME280(void);
     Adafruit_BME280(int8_t cspin);
@@ -172,6 +190,7 @@ class Adafruit_BME280
 
         return result;
         }
+    uint32_t  getMeasurementDelay(void) const;
     float     compensateHumidityFloat(int32_t adc_T, int32_t adc_H);
     int32_t   compensateHumidityInt32(int32_t adc_T, int32_t adc_H);
     float     compensatePressureFloat(int32_t adc_T, int32_t adc_P);
@@ -202,7 +221,9 @@ class Adafruit_BME280
     int8_t _cs, _mosi, _miso, _sck;
 
     OPERATING_MODE _mode;
-    OVERSAMPLE_MODE _osrs_t, _osrs_p;
+    OVERSAMPLE_MODE _osrs_t;
+    OVERSAMPLE_MODE _osrs_p;
+    OVERSAMPLE_MODE _osrs_h;
 
     bme280_calib_data _bme280_calib;
 
