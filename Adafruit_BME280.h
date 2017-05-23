@@ -131,6 +131,12 @@ class Adafruit_BME280
   public:
     enum class OPERATING_MODE { Normal, Forced, Sleep };
     enum class OVERSAMPLE_MODE { Skip = 0, x1, x2, x4, x8, x16 };
+    enum PARAM
+	{
+	CHIP_ID_READ_COUNT = 5,
+	CHIP_ID = 0x60,
+	REGISTER_READ_DELAY = 1,
+	};
     struct Measurements { float Temperature; float Pressure; float Humidity; };
     Adafruit_BME280(void);
     Adafruit_BME280(int8_t cspin);

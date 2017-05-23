@@ -66,7 +66,19 @@ bool Adafruit_BME280::begin(uint8_t a, Adafruit_BME280::OPERATING_MODE mode) {
     }
   }
 
-  if (read8(BME280_REGISTER_CHIPID) != 0x60)
+  bool fFound;
+  fFound = false;
+  for (unsigned i = CHIP_ID_READ_COUNT; i > 0; --i)
+	{
+	if (read8(BME280_REGISTER_CHIPID) == CHIP_ID)
+		{
+		fFound = true;
+		break;
+		}
+	delay(REGISTER_READ_DELAY);
+	}
+
+  if (! fFound)
     return false;
 
   // reset the device using soft-reset
